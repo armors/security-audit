@@ -1,7 +1,5 @@
-https://github.com/crytic/slither
-https://github.com/crytic/slither/wiki
+```
 
+npm run
 
-pip3 install slither-analyzer
-
-slither . --triage-mode
+```
