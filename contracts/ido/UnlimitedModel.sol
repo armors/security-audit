@@ -4,9 +4,10 @@ pragma solidity ^0.8.6;
 
 import "./IERC20.sol";
 import "./Ownable.sol";
+import "./SafeERC20.sol";
 
 contract UnlimitedModel is Ownable{
-
+    using SafeERC20 for IERC20;
     IERC20 public token ;                   //项目方token
     IERC20 public USDT ;                     //USDT
     address public feeAddress;
@@ -105,7 +106,7 @@ contract UnlimitedModel is Ownable{
         require(_withdrawTime > _endTime, "Invalid withdrawTime");
         require(token.balanceOf(msg.sender) >= _salesAmount, "Not enough token amount");
 
-        token.transferFrom(msg.sender, address (this), _salesAmount);
+        token.safeTransferFrom(msg.sender, address (this), _salesAmount);
 
         PairInfo storage p = pairInfo[num];
         p.pairToken = pToken;
@@ -138,7 +139,7 @@ contract UnlimitedModel is Ownable{
     function cancelPair(uint256 _pid, address _recipient) public onlyAdmin{
         PairInfo storage pair = pairInfo[_pid];
         require(pair.startTime > block.timestamp,"Pair already start");
-        token.transfer(_recipient, pair.salesAmount);
+        token.safeTransfer(_recipient, pair.salesAmount);
         delete pairInfo[_pid];
     }
 
@@ -150,7 +151,7 @@ contract UnlimitedModel is Ownable{
     function withdrawToken(uint256 _pid, address _recipient) public onlyAdmin{
         PairInfo storage pair = pairInfo[_pid];
         require(pair.withdrawTime < block.timestamp,"The project is not withdraw");
-        token.transfer(_recipient, pair.salesAmount - pair.claimAmount);
+        token.safeTransfer(_recipient, pair.salesAmount - pair.claimAmount);
         emit WithdrawToken(msg.sender,pair.salesAmount - pair.claimAmount);
     }
 //    管理员取走USDT 
@@ -161,7 +162,7 @@ contract UnlimitedModel is Ownable{
     function withdrawUSDT(uint256 _pid, address _recipient) public onlyAdmin{
         PairInfo storage pair = pairInfo[_pid];
         require(pair.withdrawTime < block.timestamp,"The project is not withdraw");
-        USDT.transfer(_recipient, pair.usdtAmount);
+        USDT.safeTransfer(_recipient, pair.usdtAmount);
         emit WithdrawUSDT(msg.sender,pair.usdtAmount);
     }
 //    用户购买额度
@@ -174,7 +175,7 @@ contract UnlimitedModel is Ownable{
         UserInfo storage user = userInfo[_pid][msg.sender];
         require(pair.startTime < block.timestamp, "Pair is not start");
         require(pair.endTime > block.timestamp, "Pair is over");
-        pair.pairToken.transferFrom(msg.sender, address(this), _amount);
+        pair.pairToken.safeTransferFrom(msg.sender, address(this), _amount);
         user.buyAmount += _amount;
         pair.totalAmount += _amount;
         if (pair.accountRs[msg.sender] == 0) {
@@ -193,7 +194,7 @@ contract UnlimitedModel is Ownable{
         require(pair.endTime < block.timestamp, "Pair is not over");
         require(user.buyAmount > 0,"Not enough amount");
         user.balance = getTokenAmount(_pid);
-        pair.pairToken.transfer(msg.sender, user.buyAmount);
+        pair.pairToken.safeTransfer(msg.sender, user.buyAmount);
         emit Claim(msg.sender, _pid, user.buyAmount);
         user.buyAmount = 0;
     }
@@ -212,15 +213,15 @@ contract UnlimitedModel is Ownable{
             user.balance = getTokenAmount(_pid);
         }
         require(user.balance > 0,"Not enough balance");
-        USDT.transferFrom(msg.sender, address(this), user.balance * pair.price);
+        USDT.safeTransferFrom(msg.sender, address(this), user.balance * pair.price);
         FeeInfo storage fee = pair.feeRate[getPairFeeRateStep(_pid)];
-        USDT.transferFrom(msg.sender, feeAddress, 
+        USDT.safeTransferFrom(msg.sender, feeAddress, 
             user.balance * pair.price * fee.feeRate / fee.feeRateDenominator);
-        token.transfer(msg.sender, user.balance);
+        token.safeTransfer(msg.sender, user.balance);
         pair.claimAmount += user.balance;
         pair.usdtAmount += user.balance * pair.price;
         emit CashLimit(msg.sender, _pid, user.balance);
-        pair.pairToken.transfer(msg.sender, user.buyAmount);
+        pair.pairToken.safeTransfer(msg.sender, user.buyAmount);
         emit Claim(msg.sender, _pid, user.buyAmount);
         user.balance = 0;
         user.buyAmount = 0;
